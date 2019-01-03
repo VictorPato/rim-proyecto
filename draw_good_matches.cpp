@@ -12,54 +12,49 @@ const char* keys =
     "{ help h |                          | Print help message. }"
     "{ input1 | head.jpg         | Path to input image 1. }"
     "{ input2 | calvin.jpg | Path to input image 2. }";
-int main( int argc, char* argv[] )
-{
-    CommandLineParser parser( argc, argv, keys );
+int main(int argc, char* argv[]) {
+    CommandLineParser parser(argc, argv, keys);
     String in1 = parser.get<String>("input1");
     String in2 = parser.get<String>("input2");
     std::cout << "1 " << in1 << " 2 " << in2 << std::endl;
-    Mat img1 = imread( parser.get<String>("input1"), IMREAD_GRAYSCALE );
-    Mat img2 = imread( parser.get<String>("input2"), IMREAD_GRAYSCALE );
-    if ( img1.empty() || img2.empty() )
-    {
+    Mat img1 = imread(parser.get<String>("input1"), IMREAD_GRAYSCALE);
+    Mat img2 = imread(parser.get<String>("input2"), IMREAD_GRAYSCALE);
+    if (img1.empty() || img2.empty()) {
         cout << "Could not open or find the image!\n" << endl;
         parser.printMessage();
         return -1;
     }
     //-- Step 1: Detect the keypoints using SURF Detector, compute the descriptors
     int minHessian = 400;
-    Ptr<SURF> detector = SURF::create( minHessian );
+    Ptr<SURF> detector = SURF::create(minHessian);
     std::vector<KeyPoint> keypoints1, keypoints2;
     Mat descriptors1, descriptors2;
-    detector->detectAndCompute( img1, noArray(), keypoints1, descriptors1 );
-    detector->detectAndCompute( img2, noArray(), keypoints2, descriptors2 );
+    detector->detectAndCompute(img1, noArray(), keypoints1, descriptors1);
+    detector->detectAndCompute(img2, noArray(), keypoints2, descriptors2);
     //-- Step 2: Matching descriptor vectors with a FLANN based matcher
     // Since SURF is a floating-point descriptor NORM_L2 is used
     Ptr<DescriptorMatcher> matcher = DescriptorMatcher::create(DescriptorMatcher::FLANNBASED);
-    std::vector< std::vector<DMatch> > knn_matches;
-    matcher->knnMatch( descriptors1, descriptors2, knn_matches, 2 );
+    std::vector<std::vector<DMatch>> knn_matches;
+    matcher->knnMatch(descriptors1, descriptors2, knn_matches, 2);
     //-- Filter matches using the Lowe's ratio test
     const float ratio_thresh = 0.7f;
     std::vector<DMatch> good_matches;
-    for (size_t i = 0; i < knn_matches.size(); i++)
-    {
-        if (knn_matches[i][0].distance < ratio_thresh * knn_matches[i][1].distance)
-        {
+    for (size_t i = 0; i < knn_matches.size(); i++) {
+        if (knn_matches[i][0].distance < ratio_thresh * knn_matches[i][1].distance) {
             good_matches.push_back(knn_matches[i][0]);
         }
     }
     //-- Draw matches
     Mat img_matches;
-    drawMatches( img1, keypoints1, img2, keypoints2, good_matches, img_matches, Scalar::all(-1),
-                 Scalar::all(-1), std::vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
+    drawMatches(img1, keypoints1, img2, keypoints2, good_matches, img_matches, Scalar::all(-1),
+                 Scalar::all(-1), std::vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
     //-- Show detected matches
-    imshow("Good Matches", img_matches );
+    imshow("Good Matches", img_matches);
     waitKey();
     return 0;
 }
 #else
-int main()
-{
+int main() {
     std::cout << "This tutorial code needs the xfeatures2d contrib module to be run." << std::endl;
     return 0;
 }
