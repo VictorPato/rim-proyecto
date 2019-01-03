@@ -84,10 +84,15 @@ int main(int argc, char* argv[]) {
 
     std::vector<std::string> source_images = listar_archivos(source_folder);
 
+    int i = 0;
+    int percent = 0;
+    int prev_percent = -1;
+    int total_size = source_images.size();
+
     // iterate through all images to create descriptors
     int minHessian = 400;
     Ptr<SURF> detector = SURF::create(minHessian);
-    for(const std::string &image_name : source_images){
+    for (const std::string &image_name : source_images) {
         Mat img = imread(image_name, IMREAD_GRAYSCALE );
         std::vector<KeyPoint> keypoints;
         Mat descriptors;
@@ -98,6 +103,26 @@ int main(int argc, char* argv[]) {
 
         FileStorage file(new_name, cv::FileStorage::WRITE);
         file << "descriptor" << descriptors;
-        std::cout << new_name << std::endl;
+
+        // Display progress
+        i++;
+        percent = (i * 100) / total_size;
+        if (percent - prev_percent == 1) {
+            std::cout << "\r" << "Progreso: [";
+            if (percent < 100)
+                std::cout << " ";
+            if (percent < 10)
+                std::cout << " ";
+            std::cout << percent << "%] ";
+            std::cout << "[";
+            for (int j = 1; j <= 100; j++) {
+                if (j <= percent)
+                    std::cout << "#";
+                else
+                    std::cout << ".";
+            }
+            std::cout << "]" << std::flush;
+            prev_percent = percent;
+        }
     }
 }
