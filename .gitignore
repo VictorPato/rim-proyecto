@@ -1,3 +1,8 @@
+.idea/
+comics/
+images/
+cmake-build-debug
+draw_good_matches
 CMakeCache.txt
 CMakeFiles
 CMakeScripts
