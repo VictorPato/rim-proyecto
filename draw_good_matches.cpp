@@ -29,6 +29,13 @@ int main(int argc, char* argv[]) {
     Mat descriptors1, descriptors2;
     detector->detectAndCompute(img1, noArray(), keypoints1, descriptors1);
     detector->detectAndCompute(img2, noArray(), keypoints2, descriptors2);
+
+    // Write to file
+    FileStorage file("descriptors1.xml", cv::FileStorage::WRITE);
+    file << "descriptors1" << descriptors1;
+    FileStorage file("descriptors2.xml", cv::FileStorage::WRITE);
+    file << "descriptors2" << descriptors1;
+
     //-- Step 2: Matching descriptor vectors with a FLANN based matcher
     // Since SURF is a floating-point descriptor NORM_L2 is used
     Ptr<DescriptorMatcher> matcher = DescriptorMatcher::create(DescriptorMatcher::FLANNBASED);
