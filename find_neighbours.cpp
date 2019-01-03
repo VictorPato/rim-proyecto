@@ -11,6 +11,8 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <queue>
+#include <utility>
 
 using namespace cv;
 using namespace cv::xfeatures2d;
@@ -75,35 +77,62 @@ std::vector<std::string> listar_archivos(const std::string &dirname) {
 
 int main(int argc, char* argv[]) {
     if( argc != 3 ){
-        std::cout << " Usage: ./create_descriptors <source_folder> <destination_folder>" << std::endl;
+        std::cout << " Usage: ./find_neighbours <descriptors_folder> <image>" << std::endl;
         return -1; 
     }
 
-    std::string source_folder = argv[1];
-    std::string destination_folder = argv[2];
+    std::string descriptors_folder = argv[1];
+    std::string image_name = argv[2];
 
-    std::vector<std::string> source_images = listar_archivos(source_folder);
+    std::vector<std::string> descriptors = listar_archivos(descriptors_folder);
 
     int i = 0;
     int percent = 0;
     int prev_percent = -1;
-    int total_size = source_images.size();
+    int total_size = descriptors.size();
 
     // iterate through all images to create descriptors
     int minHessian = 500;
     Ptr<SURF> detector = SURF::create(minHessian);
     detector->setUpright(true);
-    for (const std::string &image_name : source_images) {
-        Mat img = imread(image_name, IMREAD_GRAYSCALE );
-        std::vector<KeyPoint> keypoints;
-        Mat descriptors;
-        detector->detectAndCompute(img, noArray(), keypoints, descriptors);
+    Mat img = imread(image_name, IMREAD_GRAYSCALE );
+    std::vector<KeyPoint> keypoints;
+    Mat descriptor_of_image;
+    detector->detectAndCompute(img, noArray(), keypoints, descriptor_of_image);
 
-        std::string new_name = image_name.substr(image_name.find('/'));
-        new_name = destination_folder + new_name.substr(0, new_name.find('.')) + ".xml";
-        FileStorage file(new_name, cv::FileStorage::WRITE);
-        file << "descriptor" << descriptors;
-        file.release();
+    std::priority_queue<std::pair<int, std::string>, std::vector<std::pair<int, std::string>>, std::greater<std::pair<int, std::string>>> neighbours;
+
+    for (const std::string &descriptor_name : descriptors) {
+        Mat desc;
+        FileStorage file(descriptor_name, cv::FileStorage::READ);
+        file["descriptor"] >> desc;
+
+        //-- Step 2: Matching descriptor vectors with a FLANN based matcher
+        // Since SURF is a floating-point descriptor NORM_L2 is used
+        Ptr<DescriptorMatcher> matcher = DescriptorMatcher::create(DescriptorMatcher::FLANNBASED);
+        std::vector<std::vector<DMatch>> knn_matches;
+        matcher->knnMatch(descriptor_of_image, desc, knn_matches, 2);
+        //-- Filter matches using the Lowe's ratio test
+        const float ratio_thresh = 0.7f;
+        int score = 0;
+        // std::vector<DMatch> good_matches;
+        for (size_t i = 0; i < knn_matches.size(); i++) {
+            if (knn_matches[i][0].distance < ratio_thresh * knn_matches[i][1].distance) {
+                // good_matches.push_back(knn_matches[i][0]);
+                score++;
+            }
+        }
+
+        int k = 4;
+
+        if (neighbours.size() < k || (neighbours.top().first < score)) {
+            neighbours.push(make_pair(score, descriptor_name));
+        }
+
+        if (neighbours.size() > 4) {
+            neighbours.pop();
+        }
+
         // Display progress
         i++;
         percent = (i * 100) / total_size;
@@ -126,4 +155,9 @@ int main(int argc, char* argv[]) {
         }
     }
     std::cout << std::endl;
+
+    while (!neighbours.empty()) {
+        std::cout << neighbours.top().second << std::endl;
+        neighbours.pop();
+    }
 }
