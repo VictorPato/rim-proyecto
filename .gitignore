@@ -1,4 +1,6 @@
+create_descriptors
 .idea/
+descriptors/
 comics/
 images/
 cmake-build-debug
