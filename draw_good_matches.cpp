@@ -8,22 +8,20 @@ using namespace cv;
 using namespace cv::xfeatures2d;
 using std::cout;
 using std::endl;
-const char* keys =
-    "{ help h |                          | Print help message. }"
-    "{ input1 | head.jpg         | Path to input image 1. }"
-    "{ input2 | calvin.jpg | Path to input image 2. }";
 int main(int argc, char* argv[]) {
-    CommandLineParser parser(argc, argv, keys);
-    String in1 = parser.get<String>("input1");
-    String in2 = parser.get<String>("input2");
-    std::cout << "1 " << in1 << " 2 " << in2 << std::endl;
-    Mat img1 = imread(parser.get<String>("input1"), IMREAD_GRAYSCALE);
-    Mat img2 = imread(parser.get<String>("input2"), IMREAD_GRAYSCALE);
-    if (img1.empty() || img2.empty()) {
-        cout << "Could not open or find the image!\n" << endl;
-        parser.printMessage();
-        return -1;
+
+    if( argc != 3 ){
+        std::cout << " Usage: ./SURF_detector <img1> <img2>" << std::endl;
+        return -1; 
     }
+
+    Mat img1 = imread( argv[1], IMREAD_GRAYSCALE );
+    Mat img2 = imread( argv[2], IMREAD_GRAYSCALE );
+
+    if( !img1.data || !img2.data ){
+        std::cout<< " --(!) Error reading images " << std::endl; return -1; 
+    }
+
     //-- Step 1: Detect the keypoints using SURF Detector, compute the descriptors
     int minHessian = 400;
     Ptr<SURF> detector = SURF::create(minHessian);
