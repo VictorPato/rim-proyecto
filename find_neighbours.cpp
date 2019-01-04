@@ -166,7 +166,7 @@ int main(int argc, char* argv[]) {
                 neighbours.push(make_pair(score, desc.first));
             }
 
-            if (neighbours.size() > 4) {
+            if (neighbours.size() > k) {
                 neighbours.pop();
             }
 
