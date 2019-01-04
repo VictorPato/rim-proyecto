@@ -1,3 +1,5 @@
+tests/
+find_neighbours_from_folder
 find_neighbours
 create_descriptors
 .idea/
