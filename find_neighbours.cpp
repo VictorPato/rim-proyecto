@@ -77,13 +77,12 @@ std::vector<std::string> listar_archivos(const std::string &dirname) {
 
 int main(int argc, char* argv[]) {
     if( argc != 3 ){
-        std::cout << " Usage: ./find_neighbours <descriptors_folder> <image>" << std::endl;
+        std::cout << " Usage: ./find_neighbours <descriptors_folder> <amount of neighbours>" << std::endl;
         return -1; 
     }
-
     std::string descriptors_folder = argv[1];
-    std::string image_name = argv[2];
-
+    std::string k_string = argv[2];
+    int k = stoi(k_string);
     std::vector<std::string> descriptors = listar_archivos(descriptors_folder);
 
     int i = 0;
@@ -91,47 +90,13 @@ int main(int argc, char* argv[]) {
     int prev_percent = -1;
     int total_size = descriptors.size();
 
-    // iterate through all images to create descriptors
-    int minHessian = 500;
-    Ptr<SURF> detector = SURF::create(minHessian);
-    detector->setUpright(true);
-    Mat img = imread(image_name, IMREAD_GRAYSCALE );
-    std::vector<KeyPoint> keypoints;
-    Mat descriptor_of_image;
-    detector->detectAndCompute(img, noArray(), keypoints, descriptor_of_image);
-
-    std::priority_queue<std::pair<int, std::string>, std::vector<std::pair<int, std::string>>, std::greater<std::pair<int, std::string>>> neighbours;
-
+    std::vector<std::pair<std::string,Mat>> descriptor_vector;
+    std::cout << "Cargando descriptores del disco" << std::endl;
     for (const std::string &descriptor_name : descriptors) {
         Mat desc;
         FileStorage file(descriptor_name, cv::FileStorage::READ);
         file["descriptor"] >> desc;
-
-        //-- Step 2: Matching descriptor vectors with a FLANN based matcher
-        // Since SURF is a floating-point descriptor NORM_L2 is used
-        Ptr<DescriptorMatcher> matcher = DescriptorMatcher::create(DescriptorMatcher::FLANNBASED);
-        std::vector<std::vector<DMatch>> knn_matches;
-        matcher->knnMatch(descriptor_of_image, desc, knn_matches, 2);
-        //-- Filter matches using the Lowe's ratio test
-        const float ratio_thresh = 0.7f;
-        int score = 0;
-        // std::vector<DMatch> good_matches;
-        for (size_t i = 0; i < knn_matches.size(); i++) {
-            if (knn_matches[i][0].distance < ratio_thresh * knn_matches[i][1].distance) {
-                // good_matches.push_back(knn_matches[i][0]);
-                score++;
-            }
-        }
-
-        int k = 4;
-
-        if (neighbours.size() < k || (neighbours.top().first < score)) {
-            neighbours.push(make_pair(score, descriptor_name));
-        }
-
-        if (neighbours.size() > 4) {
-            neighbours.pop();
-        }
+        descriptor_vector.push_back(make_pair(descriptor_name,desc));
 
         // Display progress
         i++;
@@ -154,10 +119,83 @@ int main(int argc, char* argv[]) {
             prev_percent = percent;
         }
     }
+    std::string image_name;
     std::cout << std::endl;
+    int minHessian = 500;
+    Ptr<SURF> detector = SURF::create(minHessian);
+    detector->setUpright(true);
 
-    while (!neighbours.empty()) {
-        std::cout << neighbours.top().second << std::endl;
-        neighbours.pop();
+    // manejar las consultas del usuario de forma iterativa
+    while(true){
+        i = 0;
+        percent = 0;
+        prev_percent = -1;
+        total_size = descriptor_vector.size();
+        std::cout << "Ingrese imagen a buscar: " << std::endl;
+        std::cin >> image_name;
+        if(image_name == ""){
+            break;
+        }
+
+        // create descriptor from image
+        Mat img = imread(image_name, IMREAD_GRAYSCALE );
+        std::vector<KeyPoint> keypoints;
+        Mat descriptor_of_image;
+        detector->detectAndCompute(img, noArray(), keypoints, descriptor_of_image);
+
+        // create priority queue for best neighbours
+        std::priority_queue<std::pair<int, std::string>, std::vector<std::pair<int, std::string>>, std::greater<std::pair<int, std::string>>> neighbours;
+
+        for (const std::pair<std::string,Mat> &desc : descriptor_vector) {
+            // Since SURF is a floating-point descriptor NORM_L2 is used
+            Ptr<DescriptorMatcher> matcher = DescriptorMatcher::create(DescriptorMatcher::FLANNBASED);
+            std::vector<std::vector<DMatch>> knn_matches;
+            matcher->knnMatch(descriptor_of_image, desc.second, knn_matches, 2);
+            //-- Filter matches using the Lowe's ratio test
+            const float ratio_thresh = 0.7f;
+            int score = 0;
+            // std::vector<DMatch> good_matches;
+            for (size_t i = 0; i < knn_matches.size(); i++) {
+                if (knn_matches[i][0].distance < ratio_thresh * knn_matches[i][1].distance) {
+                    // good_matches.push_back(knn_matches[i][0]);
+                    score++;
+                }
+            }
+
+            if (neighbours.size() < k || (neighbours.top().first < score)) {
+                neighbours.push(make_pair(score, desc.first));
+            }
+
+            if (neighbours.size() > 4) {
+                neighbours.pop();
+            }
+
+            // Display progress
+            i++;
+            percent = (i * 100) / total_size;
+            if (percent - prev_percent == 1) {
+                std::cout << "\r" << "Progreso: [";
+                if (percent < 100)
+                    std::cout << " ";
+                if (percent < 10)
+                    std::cout << " ";
+                std::cout << percent << "%] ";
+                std::cout << "[";
+                for (int j = 1; j <= 100; j++) {
+                    if (j <= percent)
+                        std::cout << "#";
+                    else
+                        std::cout << ".";
+                }
+                std::cout << "]" << std::flush;
+                prev_percent = percent;
+            }
+        }
+
+        std::cout << std::endl << "Best "<< k << " neighbours: " << std::endl;
+        while (!neighbours.empty()) {
+            std::cout << neighbours.top().second << std::endl;
+            neighbours.pop();
+        }
     }
 }

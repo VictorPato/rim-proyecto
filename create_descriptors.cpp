@@ -100,7 +100,7 @@ int main(int argc, char* argv[]) {
         detector->detectAndCompute(img, noArray(), keypoints, descriptors);
 
         std::string new_name = image_name.substr(image_name.find('/'));
-        new_name = destination_folder + new_name.substr(0, new_name.find('.')) + ".xml";
+        new_name = destination_folder + new_name.substr(0, new_name.rfind('.')) + ".xml";
         FileStorage file(new_name, cv::FileStorage::WRITE);
         file << "descriptor" << descriptors;
         file.release();
